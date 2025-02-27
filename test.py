@@ -1,3 +1,94 @@
+<<<<<<< HEAD
+import os
+import re
+import numpy as np
+from PIL import Image
+from sklearn.preprocessing import LabelEncoder
+from sklearn.model_selection import train_test_split
+import xml.etree.ElementTree as ET
+from tensorflow.keras.models import Sequential, load_model
+from tensorflow.keras.layers import Flatten, Dense, Dropout
+
+folder_path = "D:/Code/AI/Check the masked person/images"
+xml_folder = "D:/Code/AI/Check the masked person/annotations"
+
+x_data = []
+y_data = []
+
+def parse_xml(xml_path):
+    tree = ET.parse(xml_path)
+    root = tree.getroot()
+    objects = []
+    for obj in root.findall("object"):
+        label = obj.find("name").text
+        bndbox = obj.find("bndbox")  
+        xmin = int(bndbox.find("xmin").text)
+        ymin = int(bndbox.find("ymin").text)
+        xmax = int(bndbox.find("xmax").text)
+        ymax = int(bndbox.find("ymax").text)
+        objects.append({"label": label, "bbox": [xmin, ymin, xmax, ymax]})
+    return objects
+
+def extract_number(filename):
+    match = re.search(r"\d+", filename)
+    return int(match.group()) if match else -1
+
+xml_files = sorted(os.listdir(xml_folder), key=extract_number)
+encode = LabelEncoder()
+
+for file in xml_files:
+    file_path = os.path.join(xml_folder, file)
+
+    if not os.path.isfile(file_path) or not file.lower().endswith('.xml'):
+        continue
+
+    try:
+        image_name = file.replace(".xml", ".png")  
+        image_path = os.path.join(folder_path, image_name)
+        if not os.path.exists(image_path):
+            print(f"Image not found: {image_path}")
+            continue  
+        
+        img = Image.open(image_path).convert('L') 
+        img = img.resize((512, 512)) 
+        x_data.append(np.array(img).reshape(512, 512, 1))
+        
+        objects = parse_xml(file_path)
+        if objects:
+            y_data.append(objects[0]["label"])
+        else:
+            print(f"Warning: No objects found in {file_path}")
+            continue
+    except Exception as e:
+        print(f"Error processing {file}: {e}")
+
+if len(x_data) == 0:
+    raise ValueError("No data found! Check your dataset paths and XML annotations.")
+
+y_data = encode.fit_transform(y_data)
+x_data = np.array(x_data).astype('float32') / 255.0
+
+if len(x_data) > 1:
+    x_train, x_test, y_train, y_test = train_test_split(x_data, y_data, test_size=0.2, random_state=42)
+else:
+    print("Not enough data to split, using all data for training")
+    x_train, y_train = x_data, y_data
+    x_test, y_test = x_data, y_data  
+
+model = Sequential([
+    Flatten(input_shape=(512, 512, 1)),  
+    Dense(512, activation='relu'),   
+    Dropout(0.5),
+    Dense(len(encode.classes_), activation='softmax')  
+])
+
+model.compile(loss='sparse_categorical_crossentropy', optimizer='adam', metrics=['accuracy'])
+model.fit(x_train, y_train, epochs=14)
+model.evaluate(x_test, y_test)
+
+model.save('my_model.h5') 
+model = load_model("my_model.h5")
+=======
 import os
 import re
 import numpy as np
@@ -79,3 +170,4 @@ model.evaluate(x_test, y_test)
 model.save('my_model.h5') 
 model = load_model("my_model.h5")
 
+>>>>>>> 51180ba2fcef60e7bb5ef97ba31eba846540465a
